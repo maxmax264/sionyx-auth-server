@@ -1,4 +1,4 @@
-const express = require('express');
+﻿const express = require('express');
 const axios = require('axios');
 const { YemotRouter } = require('yemot-router2');
 const path = require('path');
@@ -12,6 +12,12 @@ const API_KEY = process.env.FIREBASE_API_KEY;
 const BASE_URL = process.env.BASE_URL || 'https://sionyx-auth-server.onrender.com';
 
 app.use('/audio', express.static(path.join(__dirname, 'audio')));
+
+// לוג כל בקשה
+app.use((req, res, next) => {
+  console.log(`[HTTP] ${req.method} ${req.url} - ${new Date().toISOString()}`);
+  next();
+});
 
 function dbUrl(p) {
   return `${FIREBASE_DB_URL}/${p}.json?auth=${FIREBASE_SECRET}`;
@@ -41,9 +47,9 @@ function audioFile(name) {
 
 const yemotRouter = YemotRouter({ printLog: true });
 
-yemotRouter.post('/yemot', async (call) => {
+yemotRouter.get('/yemot', async (call) => {
   const phone = call.phone;
-  console.log(`[yemot] שיחה נכנסת מ: ${phone}`);
+  console.log(`[yemot] שיחה נכנסת: ${phone}`);
 
   try {
     const digit = await call.read(
@@ -120,7 +126,7 @@ yemotRouter.post('/yemot', async (call) => {
 app.use(yemotRouter);
 
 app.get('/', (req, res) => {
-  res.send('SIONYX Auth Server running ✓');
+  res.send('SIONYX Auth Server running');
 });
 
 app.listen(PORT, () => {
