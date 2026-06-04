@@ -11,12 +11,10 @@ const FIREBASE_SECRET = process.env.FIREBASE_DB_SECRET;
 const API_KEY = process.env.FIREBASE_API_KEY;
 const BASE_URL = process.env.BASE_URL || 'https://sionyx-auth-server.onrender.com';
 
-// ===== הגשת קבצי קול =====
 app.use('/audio', express.static(path.join(__dirname, 'audio')));
 
-// ===== Firebase helpers =====
-function dbUrl(path) {
-  return `${FIREBASE_DB_URL}/${path}.json?auth=${FIREBASE_SECRET}`;
+function dbUrl(p) {
+  return `${FIREBASE_DB_URL}/${p}.json?auth=${FIREBASE_SECRET}`;
 }
 async function dbGet(p) {
   const res = await axios.get(dbUrl(p));
@@ -26,7 +24,6 @@ async function dbSet(p, data) {
   await axios.put(dbUrl(p), data);
 }
 
-// ===== חיפוש משתמש לפי מספר טלפון =====
 async function findUserByPhone(phone) {
   const cleanPhone = phone.replace(/\D/g, '');
   const users = await dbGet('users');
@@ -38,12 +35,10 @@ async function findUserByPhone(phone) {
   return uid ? { uid, ...users[uid] } : null;
 }
 
-// ===== בניית רשימת קבצי קול לפי שם =====
 function audioFile(name) {
-  return { type: 'url', data: `${BASE_URL}/audio/${name}.mp3` };
+  return { type: 'file', data: `${BASE_URL}/audio/${name}.mp3` };
 }
 
-// ===== ימות המשיח — ניהול שיחה =====
 const yemotRouter = YemotRouter({ printLog: true });
 
 yemotRouter.post('/yemot', async (call) => {
@@ -124,7 +119,6 @@ yemotRouter.post('/yemot', async (call) => {
 
 app.use(yemotRouter);
 
-// ===== Health check =====
 app.get('/', (req, res) => {
   res.send('SIONYX Auth Server running ✓');
 });
