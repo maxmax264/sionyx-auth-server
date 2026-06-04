@@ -40,7 +40,7 @@ async function findUserByPhone(phone) {
 }
 
 function audioFile(name) {
-  return { type: 'file', data: path.join(__dirname, 'audio', name + '.mp3') };
+  return { type: 'file', data: path.join(__dirname, 'audio', name) };
 }
 
 const yemotRouter = YemotRouter({ printLog: true });
@@ -126,3 +126,4 @@ app.get('/', (req, res) => {
 app.listen(PORT, () => {
   console.log('SIONYX Auth Server running on port ' + PORT);
 });
+
