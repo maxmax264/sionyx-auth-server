@@ -9,18 +9,16 @@ const PORT = process.env.PORT || 3000;
 const FIREBASE_DB_URL = process.env.FIREBASE_DATABASE_URL;
 const FIREBASE_SECRET = process.env.FIREBASE_DB_SECRET;
 const API_KEY = process.env.FIREBASE_API_KEY;
-const BASE_URL = process.env.BASE_URL || 'https://sionyx-auth-server.onrender.com';
 
 app.use('/audio', express.static(path.join(__dirname, 'audio')));
 
-// לוג כל בקשה
 app.use((req, res, next) => {
-  console.log(`[HTTP] ${req.method} ${req.url} - ${new Date().toISOString()}`);
+  console.log('[HTTP] ' + req.method + ' ' + req.url);
   next();
 });
 
 function dbUrl(p) {
-  return `${FIREBASE_DB_URL}/${p}.json?auth=${FIREBASE_SECRET}`;
+  return FIREBASE_DB_URL + '/' + p + '.json?auth=' + FIREBASE_SECRET;
 }
 async function dbGet(p) {
   const res = await axios.get(dbUrl(p));
@@ -42,14 +40,14 @@ async function findUserByPhone(phone) {
 }
 
 function audioFile(name) {
-  return { type: 'file', data: `${BASE_URL}/audio/${name}.mp3` };
+  return { type: 'file', data: path.join(__dirname, 'audio', name + '.mp3') };
 }
 
 const yemotRouter = YemotRouter({ printLog: true });
 
 yemotRouter.get('/yemot', async (call) => {
   const phone = call.phone;
-  console.log(`[yemot] שיחה נכנסת: ${phone}`);
+  console.log('[yemot] call from: ' + phone);
 
   try {
     const digit = await call.read(
@@ -59,24 +57,24 @@ yemotRouter.get('/yemot', async (call) => {
     );
 
     if (digit === '1') {
-      console.log(`[yemot] אימות עבור: ${phone}`);
+      console.log('[yemot] verify: ' + phone);
       const user = await findUserByPhone(phone);
 
       if (!user) {
-        console.log(`[yemot] מספר לא נמצא: ${phone}`);
+        console.log('[yemot] not found: ' + phone);
         await call.read([audioFile('002')], 'tap', { max_digits: 1, sec_wait: 5, allow_empty: true });
         return;
       }
 
-      await dbSet(`users/${user.uid}/phoneVerified`, true);
-      await dbSet(`users/${user.uid}/phoneVerifiedAt`, new Date().toISOString());
-      await dbSet(`users/${user.uid}/phoneVerifiedBy`, 'phone');
+      await dbSet('users/' + user.uid + '/phoneVerified', true);
+      await dbSet('users/' + user.uid + '/phoneVerifiedAt', new Date().toISOString());
+      await dbSet('users/' + user.uid + '/phoneVerifiedBy', 'phone');
 
-      console.log(`[yemot] אומת בהצלחה: ${user.uid}`);
+      console.log('[yemot] verified: ' + user.uid);
       await call.read([audioFile('001')], 'tap', { max_digits: 1, sec_wait: 5, allow_empty: true });
 
     } else if (digit === '2') {
-      console.log(`[yemot] איפוס סיסמה עבור: ${phone}`);
+      console.log('[yemot] reset password: ' + phone);
       const user = await findUserByPhone(phone);
 
       if (!user) {
@@ -85,38 +83,34 @@ yemotRouter.get('/yemot', async (call) => {
       }
 
       const tempPassword = Math.floor(1000 + Math.random() * 9000).toString();
-      console.log(`[yemot] סיסמה חדשה עבור ${user.uid}: ${tempPassword}`);
+      console.log('[yemot] new password for ' + user.uid + ': ' + tempPassword);
 
-      await dbSet(`passwordResets/${user.uid}`, {
+      await dbSet('passwordResets/' + user.uid, {
         tempPassword,
         expiresAt: Date.now() + 10 * 60 * 1000,
         createdAt: new Date().toISOString()
       });
 
-      const userEmail = user.email || `${phone.replace(/\D/g, '')}@sionyx.app`;
+      const userEmail = user.email || (phone.replace(/\D/g, '') + '@sionyx.app');
       try {
         await axios.post(
-          `https://identitytoolkit.googleapis.com/v1/accounts:update?key=${API_KEY}`,
+          'https://identitytoolkit.googleapis.com/v1/accounts:update?key=' + API_KEY,
           { email: userEmail, password: tempPassword, returnSecureToken: false }
         );
       } catch (authErr) {
-        console.error('[yemot] שגיאה בעדכון Firebase Auth:', authErr.message);
+        console.error('[yemot] firebase auth error: ' + authErr.message);
       }
 
       const digits = tempPassword.split('');
       await call.read(
-        [
-          audioFile('004'),
-          ...digits.map(d => audioFile(`num_${d}`)),
-          audioFile('005')
-        ],
+        [audioFile('004'), ...digits.map(d => audioFile('num_' + d)), audioFile('005')],
         'tap',
         { max_digits: 1, sec_wait: 8, allow_empty: true }
       );
     }
 
   } catch (e) {
-    console.error('[yemot] שגיאה:', e.message);
+    console.error('[yemot] error: ' + e.message);
     try {
       await call.read([audioFile('003')], 'tap', { max_digits: 1, sec_wait: 5, allow_empty: true });
     } catch {}
@@ -130,5 +124,5 @@ app.get('/', (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`SIONYX Auth Server running on port ${PORT}`);
+  console.log('SIONYX Auth Server running on port ' + PORT);
 });
