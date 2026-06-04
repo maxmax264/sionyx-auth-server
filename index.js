@@ -1,144 +1,108 @@
-const express = require('express');
+﻿const express = require('express');
 const axios = require('axios');
+const { YemotRouter } = require('yemot-router2');
+const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Firebase config from environment variables
-const FIREBASE_DB_URL = process.env.FIREBASE_DATABASE_URL || 'https://pc-sion-default-rtdb.firebaseio.com';
+const FIREBASE_DB_URL = process.env.FIREBASE_DATABASE_URL;
 const FIREBASE_SECRET = process.env.FIREBASE_DB_SECRET;
-const ORG_ID = process.env.ORG_ID || 'sionov';
 const API_KEY = process.env.FIREBASE_API_KEY;
+const BASE_URL = process.env.BASE_URL || 'https://sionyx-auth-server.onrender.com';
 
-// ─── helpers ────────────────────────────────────────────────
+app.use('/audio', express.static(path.join(__dirname, 'audio')));
 
-function dbUrl(path) {
-  return `${FIREBASE_DB_URL}/${path}.json?auth=${FIREBASE_SECRET}`;
+function dbUrl(p) {
+  return `${FIREBASE_DB_URL}/${p}.json?auth=${FIREBASE_SECRET}`;
 }
-
-async function dbGet(path) {
-  const res = await axios.get(dbUrl(path));
+async function dbGet(p) {
+  const res = await axios.get(dbUrl(p));
   return res.data;
 }
-
-async function dbSet(path, data) {
-  await axios.put(dbUrl(path), data);
+async function dbSet(p, data) {
+  await axios.put(dbUrl(p), data);
 }
 
-async function dbDelete(path) {
-  await axios.delete(dbUrl(path));
+async function findUserByPhone(phone) {
+  const cleanPhone = phone.replace(/\D/g, '');
+  const users = await dbGet('users');
+  if (!users) return null;
+  const uid = Object.keys(users).find(key => {
+    const userPhone = (users[key].phoneNumber || '').replace(/\D/g, '');
+    return userPhone === cleanPhone || userPhone.endsWith(cleanPhone) || cleanPhone.endsWith(userPhone);
+  });
+  return uid ? { uid, ...users[uid] } : null;
 }
 
-// ─── שלוחה 1 — אימות קוד ────────────────────────────────────
-// ימות המשיח קורא: GET /verify?code=1234
-app.get('/verify', async (req, res) => {
-  const { code } = req.query;
-  console.log(`[verify] code=${code}`);
+function audioFile(name) {
+  return { type: 'url', data: `${BASE_URL}/audio/${name}.mp3` };
+}
 
-  if (!code) {
-    return res.send('id=invalid\n');
-  }
+const yemotRouter = YemotRouter({ printLog: true });
 
-  try {
-    const data = await dbGet(`verificationCodes/${code}`);
-
-    if (!data) {
-      console.log(`[verify] code ${code} not found`);
-      return res.send('id=invalid\n');
-    }
-
-    // בדיקת תפוגה
-    const now = Date.now();
-    if (data.expiresAt && now > data.expiresAt) {
-      console.log(`[verify] code ${code} expired`);
-      await dbDelete(`verificationCodes/${code}`);
-      return res.send('id=expired\n');
-    }
-
-    // אימות הצליח — עדכן משתמש ב-Firebase
-    const uid = data.uid;
-    await dbSet(`users/${uid}/phoneVerified`, true);
-    await dbSet(`users/${uid}/phoneVerifiedAt`, new Date().toISOString());
-    await dbSet(`users/${uid}/phoneVerifiedBy`, 'phone');
-
-    // מחק את הקוד
-    await dbDelete(`verificationCodes/${code}`);
-
-    console.log(`[verify] SUCCESS uid=${uid}`);
-    return res.send('id=valid\n');
-
-  } catch (err) {
-    console.error('[verify] error:', err.message);
-    return res.send('id=error\n');
-  }
-});
-
-// ─── שלוחה 2 — איפוס סיסמה ──────────────────────────────────
-// ימות המשיח קורא: GET /reset?phone=0501234567
-app.get('/reset', async (req, res) => {
-  const { phone } = req.query;
-  console.log(`[reset] phone=${phone}`);
-
-  if (!phone) {
-    return res.send('id=error\n');
-  }
+yemotRouter.get('/yemot', async (call) => {
+  const phone = call.phone;
+  console.log(`[yemot] שיחה נכנסת מ: ${phone}`);
 
   try {
-    // חפש משתמש לפי מספר טלפון
-    const users = await dbGet('users');
-    if (!users) {
-      return res.send('id=notfound\n');
-    }
-
-    const uid = Object.keys(users).find(
-      key => users[key].phoneNumber === phone ||
-             users[key].phoneNumber === phone.replace(/\D/g, '')
+    const digit = await call.read(
+      [audioFile('000')],
+      'tap',
+      { max_digits: 1, digits_allowed: [1, 2], sec_wait: 25, allow_empty: false }
     );
 
-    if (!uid) {
-      console.log(`[reset] phone ${phone} not found`);
-      return res.send('id=notfound\n');
-    }
-
-    // צור סיסמה זמנית — 6 ספרות
-    const tempPassword = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = Date.now() + 10 * 60 * 1000; // 10 דקות
-
-    // שמור ב-Firebase
-    await dbSet(`passwordResets/${uid}`, {
-      tempPassword,
-      expiresAt,
-      createdAt: new Date().toISOString()
-    });
-
-    // עדכן Firebase Auth דרך REST API
-    // מצא את ה-email של המשתמש
-    const userEmail = `${phone.replace(/\D/g, '')}@sionyx.app`;
-
-    // עדכן סיסמה דרך Firebase Auth REST
-    const authRes = await axios.post(
-      `https://identitytoolkit.googleapis.com/v1/accounts:update?key=${API_KEY}`,
-      {
-        email: userEmail,
-        password: tempPassword,
-        returnSecureToken: false
+    if (digit === '1') {
+      const user = await findUserByPhone(phone);
+      if (!user) {
+        await call.read([audioFile('002')], 'tap', { max_digits: 1, sec_wait: 5, allow_empty: true });
+        return;
       }
-    );
+      await dbSet(`users/${user.uid}/phoneVerified`, true);
+      await dbSet(`users/${user.uid}/phoneVerifiedAt`, new Date().toISOString());
+      await dbSet(`users/${user.uid}/phoneVerifiedBy`, 'phone');
+      await call.read([audioFile('001')], 'tap', { max_digits: 1, sec_wait: 5, allow_empty: true });
 
-    console.log(`[reset] SUCCESS uid=${uid} tempPass=${tempPassword}`);
-
-    // החזר את הסיסמה לימות המשיח להשמעה
-    return res.send(`id=success&password=${tempPassword}\n`);
-
-  } catch (err) {
-    console.error('[reset] error:', err.message);
-    return res.send('id=error\n');
+    } else if (digit === '2') {
+      const user = await findUserByPhone(phone);
+      if (!user) {
+        await call.read([audioFile('002')], 'tap', { max_digits: 1, sec_wait: 5, allow_empty: true });
+        return;
+      }
+      const tempPassword = Math.floor(1000 + Math.random() * 9000).toString();
+      await dbSet(`passwordResets/${user.uid}`, {
+        tempPassword,
+        expiresAt: Date.now() + 10 * 60 * 1000,
+        createdAt: new Date().toISOString()
+      });
+      const userEmail = user.email || `${phone.replace(/\D/g, '')}@sionyx.app`;
+      try {
+        await axios.post(
+          `https://identitytoolkit.googleapis.com/v1/accounts:update?key=${API_KEY}`,
+          { email: userEmail, password: tempPassword, returnSecureToken: false }
+        );
+      } catch (authErr) {
+        console.error('[yemot] שגיאה בעדכון Auth:', authErr.message);
+      }
+      const digits = tempPassword.split('');
+      await call.read(
+        [audioFile('004'), ...digits.map(d => audioFile(`num_${d}`)), audioFile('005')],
+        'tap',
+        { max_digits: 1, sec_wait: 8, allow_empty: true }
+      );
+    }
+  } catch (e) {
+    console.error('[yemot] שגיאה:', e.message);
+    try {
+      await call.read([audioFile('003')], 'tap', { max_digits: 1, sec_wait: 5, allow_empty: true });
+    } catch {}
   }
 });
 
-// ─── health check ────────────────────────────────────────────
+app.use(yemotRouter);
+
 app.get('/', (req, res) => {
-  res.send('SIONYX Auth Server running ✓');
+  res.send('SIONYX Auth Server running');
 });
 
 app.listen(PORT, () => {
