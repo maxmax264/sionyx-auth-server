@@ -27,7 +27,7 @@ async function dbSet(p, data) {
 
 async function findUserByPhone(phone) {
   const cleanPhone = phone.replace(/\D/g, '');
-  const users = await dbGet('users');
+  const users = await dbGet('organizations/sionov/users');
   if (!users) return null;
   const uid = Object.keys(users).find(key => {
     const userPhone = (users[key].phoneNumber || '').replace(/\D/g, '');
