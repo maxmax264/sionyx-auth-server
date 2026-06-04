@@ -53,7 +53,7 @@ yemotRouter.get('/yemot', async (call) => {
     const digit = await call.read(
       [audioFile('000')],
       'tap',
-      { max_digits: 1, digits_allowed: ['1', '2'], sec_wait: 25, allow_empty: false }
+      { max_digits: 1, sec_wait: 25, allow_empty: true }
     );
 
     if (digit === '1') {
@@ -126,5 +126,6 @@ app.get('/', (req, res) => {
 app.listen(PORT, () => {
   console.log('SIONYX Auth Server running on port ' + PORT);
 });
+
 
 
