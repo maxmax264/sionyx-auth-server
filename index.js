@@ -70,8 +70,8 @@ yemotRouter.get('/yemot', async (call) => {
         await call.read([msg('002')], 'tap', { max_digits: 1, sec_wait: 5, allow_empty: true });
         return;
       }
-      await dbSet('users/' + user.uid + '/phoneVerified', true);
-      await dbSet('users/' + user.uid + '/phoneVerifiedAt', new Date().toISOString());
+      await dbSet('organizations/sionov/users/' + user.uid + '/phoneVerified', true);
+      await dbSet('organizations/sionov/users/' + user.uid + '/phoneVerifiedAt', new Date().toISOString());
       console.log('[yemot] verified: ' + user.uid);
       await call.read([msg('001')], 'tap', { max_digits: 1, sec_wait: 5, allow_empty: true });
 
@@ -84,7 +84,7 @@ yemotRouter.get('/yemot', async (call) => {
       }
       const tempPassword = Math.floor(1000 + Math.random() * 9000).toString();
       console.log('[yemot] password for ' + user.uid + ': ' + tempPassword);
-      await dbSet('passwordResets/' + user.uid, {
+      await dbSet('organizations/sionov/passwordResets/' + user.uid, {
         tempPassword,
         expiresAt: Date.now() + 10 * 60 * 1000,
         createdAt: new Date().toISOString()
