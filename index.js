@@ -40,7 +40,9 @@ async function findUserByPhone(phone) {
 }
 
 function audioFile(name) {
-  return { type: 'file', data: path.join(__dirname, 'audio', name) };
+  const texts = { '000': 'להקשת אחד לאימות הקישו אחד להקשת שניים לאיפוס סיסמה הקישו שניים', '001': 'אומת בהצלחה', '002': 'מספר לא נמצא', '003': 'שגיאה', '004': 'הסיסמה החדשה שלך היא', '005': 'לחזרה הקישו כוכבית' };
+  return { type: 'text', data: texts[name] || name };
+};
 }
 
 const yemotRouter = YemotRouter({ printLog: true });
@@ -126,6 +128,7 @@ app.get('/', (req, res) => {
 app.listen(PORT, () => {
   console.log('SIONYX Auth Server running on port ' + PORT);
 });
+
 
 
 
