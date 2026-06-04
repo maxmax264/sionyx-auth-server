@@ -22,7 +22,7 @@ async function dbGet(p) {
   return res.data;
 }
 async function dbSet(p, data) {
-  await axios.put(dbUrl(p), data);
+  await axios.put(dbUrl(p), JSON.stringify(data), { headers: { 'Content-Type': 'application/json' } });
 }
 
 async function findUserByPhone(phone) {
