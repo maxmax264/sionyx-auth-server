@@ -27,13 +27,19 @@ async function dbSet(p, data) {
 
 async function findUserByPhone(phone) {
   const cleanPhone = phone.replace(/\D/g, '');
-  const users = await dbGet('users');
-  if (!users) return null;
-  const uid = Object.keys(users).find(key => {
-    const userPhone = (users[key].phoneNumber || '').replace(/\D/g, '');
-    return userPhone === cleanPhone || userPhone.endsWith(cleanPhone) || cleanPhone.endsWith(userPhone);
-  });
-  return uid ? { uid, ...users[uid] } : null;
+  const search = (users, path) => {
+    if (!users) return null;
+    const uid = Object.keys(users).find(key => {
+      const userPhone = (users[key].phoneNumber || '').replace(/\D/g, '');
+      return userPhone === cleanPhone || userPhone.endsWith(cleanPhone) || cleanPhone.endsWith(userPhone);
+    });
+    return uid ? { uid, _path: path, ...users[uid] } : null;
+  };
+  const u1 = await dbGet('users');
+  const r1 = search(u1, 'users');
+  if (r1) return r1;
+  const u2 = await dbGet('organizations/sionov/users');
+  return search(u2, 'organizations/sionov/users');
 }
 
 const TEXTS = {
