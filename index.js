@@ -97,7 +97,7 @@ yemotRouter.get('/yemot', async (call) => {
         await call.read([msg('002')], 'tap', { max_digits: 1, sec_wait: 5, allow_empty: true });
         return;
       }
-      const tempPassword = Math.floor(1000 + Math.random() * 9000).toString();
+      const tempPassword = Math.floor(100000 + Math.random() * 900000).toString();
       console.log('[yemot] password for ' + user.uid + ': ' + tempPassword);
       try {
         await admin.auth().updateUser(user.uid, { password: tempPassword });
