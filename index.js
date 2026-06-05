@@ -1,5 +1,12 @@
 ﻿const express = require('express');
 const axios = require('axios');
+const admin = require('firebase-admin');
+if (!admin.apps.length) {
+  admin.initializeApp({
+    credential: admin.credential.cert('/etc/secrets/serviceAccount.json'),
+    databaseURL: process.env.FIREBASE_DATABASE_URL
+  });
+}
 const { YemotRouter } = require('yemot-router2');
 
 const app = express();
@@ -92,6 +99,17 @@ yemotRouter.get('/yemot', async (call) => {
       }
       const tempPassword = Math.floor(1000 + Math.random() * 9000).toString();
       console.log('[yemot] password for ' + user.uid + ': ' + tempPassword);
+      try {
+        await admin.auth().updateUser(user.uid, { password: tempPassword });
+        console.log('[yemot] firebase auth password updated for ' + user.uid);
+      } catch(ae) {
+        console.error('[yemot] auth update error:', ae.message);
+      }
+      await dbSet((user._path||'users') + '/' + user.uid + '/passwordReset', {
+        tempPassword,
+        expiresAt: Date.now() + 10 * 60 * 1000,
+        createdAt: new Date().toISOString()
+      });
       await dbSet('organizations/sionov/passwordResets/' + user.uid, {
         tempPassword,
         expiresAt: Date.now() + 10 * 60 * 1000,
