@@ -27,7 +27,7 @@ async function dbSet(p, data) {
 
 async function findUserByPhone(phone) {
   const cleanPhone = phone.replace(/\D/g, '');
-  const users = await dbGet('organizations/sionov/users');
+  const users = await dbGet('users');
   if (!users) return null;
   const uid = Object.keys(users).find(key => {
     const userPhone = (users[key].phoneNumber || '').replace(/\D/g, '');
@@ -70,8 +70,8 @@ yemotRouter.get('/yemot', async (call) => {
         await call.read([msg('002')], 'tap', { max_digits: 1, sec_wait: 5, allow_empty: true });
         return;
       }
-      await dbSet('organizations/sionov/users/' + user.uid + '/phoneVerified', true);
-      await dbSet('organizations/sionov/users/' + user.uid + '/phoneVerifiedAt', new Date().toISOString());
+      await dbSet('users/' + user.uid + '/phoneVerified', true);
+      await dbSet('users/' + user.uid + '/phoneVerifiedAt', new Date().toISOString());
       console.log('[yemot] verified: ' + user.uid);
       await call.read([msg('001')], 'tap', { max_digits: 1, sec_wait: 5, allow_empty: true });
 
