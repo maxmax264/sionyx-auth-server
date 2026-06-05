@@ -77,7 +77,9 @@ yemotRouter.get('/yemot', async (call) => {
 
     } else if (digit === '2') {
       console.log('[yemot] reset: ' + phone);
-      const user = await findUserByPhone(phone);
+      let user;
+      try { user = await findUserByPhone(phone); } catch(fe) { console.error('[yemot] findUser error:', fe.message); }
+      console.log('[yemot] reset user found:', user ? user.uid : 'null');
       if (!user) {
         await call.read([msg('002')], 'tap', { max_digits: 1, sec_wait: 5, allow_empty: true });
         return;
