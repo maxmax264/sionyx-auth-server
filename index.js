@@ -141,6 +141,20 @@ app.get('/', (req, res) => {
   res.send('SIONYX Auth Server running');
 });
 
+// Auto-update endpoint
+app.get('/latest-version', async (req, res) => {
+  try {
+    const data = await dbGet('system/update');
+    if (!data || !data.version) {
+      return res.json({ version: null, downloadUrl: null });
+    }
+    res.json({ version: data.version, downloadUrl: data.downloadUrl });
+  } catch (e) {
+    console.error('[update] error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.listen(PORT, () => {
   console.log('SIONYX Auth Server running on port ' + PORT);
 });
