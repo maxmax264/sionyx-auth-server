@@ -16,6 +16,8 @@ const FIREBASE_DB_URL = process.env.FIREBASE_DATABASE_URL;
 const FIREBASE_SECRET = process.env.FIREBASE_DB_SECRET;
 const API_KEY = process.env.FIREBASE_API_KEY;
 
+app.use(express.json());
+
 app.use((req, res, next) => {
   console.log('[HTTP] ' + req.method + ' ' + req.url);
   next();
@@ -139,6 +141,24 @@ app.use(yemotRouter);
 
 app.get('/', (req, res) => {
   res.send('SIONYX Auth Server running');
+});
+
+// Auto-update: write (called from upload_release.py)
+app.post('/set-latest-version', async (req, res) => {
+  try {
+    const secret = req.headers['x-sionyx-secret'];
+    if (secret !== process.env.SIONYX_ADMIN_SECRET) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    const { version, downloadUrl, buildNumber, releasedAt } = req.body;
+    if (!version || !downloadUrl) return res.status(400).json({ error: 'Missing fields' });
+    await admin.database().ref('system/update').set({ version, downloadUrl, buildNumber, releasedAt });
+    console.log('[update] set latest version:', version);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('[update] set error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // Auto-update endpoint
