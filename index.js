@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const axios = require('axios');
 const admin = require('firebase-admin');
 if (!admin.apps.length) {
@@ -12,8 +12,6 @@ const { YemotRouter } = require('yemot-router2');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-const FIREBASE_DB_URL = process.env.FIREBASE_DATABASE_URL;
-const FIREBASE_SECRET = process.env.FIREBASE_DB_SECRET;
 const API_KEY = process.env.FIREBASE_API_KEY;
 
 app.use(express.json());
@@ -23,15 +21,33 @@ app.use((req, res, next) => {
   next();
 });
 
-function dbUrl(p) {
-  return FIREBASE_DB_URL + '/' + p + '.json?auth=' + FIREBASE_SECRET;
+// Use the Admin SDK (service account) instead of the legacy Database Secret,
+// which Firebase no longer accepts (that's what was causing the 401s).
+function logDbError(context, p, err) {
+  console.error(
+    '[db] ' + context + ' failed for path "' + p + '": ' +
+    err.message +
+    ' | code=' + (err.code || 'n/a') +
+    ' | name=' + (err.name || 'n/a') +
+    (err.errorInfo ? ' | errorInfo=' + JSON.stringify(err.errorInfo) : '')
+  );
 }
 async function dbGet(p) {
-  const res = await axios.get(dbUrl(p));
-  return res.data;
+  try {
+    const snap = await admin.database().ref(p).once('value');
+    return snap.val();
+  } catch (err) {
+    logDbError('dbGet', p, err);
+    throw err;
+  }
 }
 async function dbSet(p, data) {
-  await axios.put(dbUrl(p), JSON.stringify(data), { headers: { 'Content-Type': 'application/json' } });
+  try {
+    await admin.database().ref(p).set(data);
+  } catch (err) {
+    logDbError('dbSet', p, err);
+    throw err;
+  }
 }
 
 async function findUserByPhone(phone) {
