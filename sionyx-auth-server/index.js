@@ -23,12 +23,31 @@ app.use((req, res, next) => {
 
 // Use the Admin SDK (service account) instead of the legacy Database Secret,
 // which Firebase no longer accepts (that's what was causing the 401s).
+function logDbError(context, p, err) {
+  console.error(
+    '[db] ' + context + ' failed for path "' + p + '": ' +
+    err.message +
+    ' | code=' + (err.code || 'n/a') +
+    ' | name=' + (err.name || 'n/a') +
+    (err.errorInfo ? ' | errorInfo=' + JSON.stringify(err.errorInfo) : '')
+  );
+}
 async function dbGet(p) {
-  const snap = await admin.database().ref(p).once('value');
-  return snap.val();
+  try {
+    const snap = await admin.database().ref(p).once('value');
+    return snap.val();
+  } catch (err) {
+    logDbError('dbGet', p, err);
+    throw err;
+  }
 }
 async function dbSet(p, data) {
-  await admin.database().ref(p).set(data);
+  try {
+    await admin.database().ref(p).set(data);
+  } catch (err) {
+    logDbError('dbSet', p, err);
+    throw err;
+  }
 }
 
 async function findUserByPhone(phone) {
